@@ -1,0 +1,21 @@
+html {
+  margin: 0;
+  padding: 0;
+  height:100%;
+  width: auto;
+}
+
+body {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+#canvas-container {
+  width:600px;
+}
+
+#my-canvas {
+  background-color: rgba(0, 0, 230, 0.65);
+}
