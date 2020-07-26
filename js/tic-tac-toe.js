@@ -1,402 +1,457 @@
 /*
 Script: tic-tac-toe.js
 Author: Nathan Stevenson
-Description: Tic-tac-toe game, featuring a repeatable game of 
+Description: Tic-tac-toe game, featuring a repeatable game of
 tic-tac-toe with a GUI.
+
+Work in progress...
 */
 "use strict"
-// Set global variables
-const canvas = document.getElementById("my-canvas");
-const ctx = canvas.getContext("2d"); // Don't fully understand this yet, used for drawing and stuff
-const [cHeight, cWidth] = [canvas.clientHeight, canvas.clientWidth]; // Used throughout for sizing and positioning
-/*
-  Set offset for canvas positioning and correct tracking of canvas clicks
-  **Side note for future self, drawing on the canvas starts at 0,0
-  not the offset.**
-*/
-let [offLeft, offTop] = [canvas.offsetLeft, canvas.offsetTop];
 
 
-// ------> Window Element Event Listeners and Callbacks <--------
-window.addEventListener("resize", updateCanvasCoord);
-
+// ================================
+//         GAMEMASTER CLASS
+// ================================
 /**
- * updateCanvasCoord - Change canvas positionion on window
- * resize to maintain accurate click (x,y) event tracking
- */
-function updateCanvasCoord() {
-  [offLeft, offTop] = [canvas.offsetLeft, canvas.offsetTop];
-  console.log(offLeft, offTop);
-  for(let i = 0; i < newGameBoard.tiles.length; i++){
-    newGameBoard.tiles[i].updateTile();
-  };
-};
-// ------> End of Window element callbacks
-
-
-/* -----> GameBoard constructor function <-------
-  GameBoard constructor function
-*/
-/**
- * @constructor GameBoard 
- */
-function GameBoard() {
-  this.name = "GameBoard";
-  this.dimensions = {
-    "h": null,
-    "w": null
-  };
-  this.position = {
-    "top": null,
-    "left": null,
-    "bottom": null,
-    "right": null
-  };
-  this.lines = {
-    h1: {},
-    h2: {},
-    v1: {},
-    v2: {}
-  };
-  this.tiles = []; // array of tile objects that belong to gameboard
-  // Initialize object when created
-  this._initializeObj();
-  // So I don't scratch my head wondering why 'this' is referencing the canvas element instead >.<
-  canvas.addEventListener("click", GameBoard.prototype.canvasClickedEvent.bind(this));
-};
-/**
- * _initializeObj - Initialize GameBoard object and draw
- * representation on canvas element.
- */
-GameBoard.prototype._initializeObj = function() {
-  this._setDimensions();
-  this._setPosition();
-  this._setLines();
-  this._drawLines();
-  this._positionTiles();
-};
-/**
- * _setPosition - Sets position of GameBoard object relative to
- * position of canvas. Uses canvas offset to acheive this.
- */
-GameBoard.prototype._setPosition = function() {
-  this.top = Math.floor(offTop);
-  this.bottom = Math.floor(this.top + this.dimensions.h);
-  this.left = Math.floor(offLeft);
-  this.right = Math.floor(this.left + this.dimensions.w);
-};
-/**
- * _setDimensions - Sets dimension of GameBoard object relative to
- * size of canvas.
- */
-GameBoard.prototype._setDimensions = function() {
-  this.dimensions.h = cHeight;
-  this.dimensions.w = cWidth;
-};
-/**
- * _setLines - Set the endpoints of the gameboard's lines
- */
-GameBoard.prototype._setLines = function() {
-  this.lines.v1 = {
-    "xStart": Math.floor(this.dimensions.w * (1/3)),
-    "xEnd": Math.floor(this.dimensions.w * (1/3)),
-    "yStart": 0,
-    "yEnd": this.dimensions.h
-  };
-  this.lines.v2 = {
-    "xStart": Math.floor(this.dimensions.w * (2/3)),
-    "xEnd": Math.floor(this.dimensions.w * (2/3)),
-    "yStart": 0,
-    "yEnd": this.dimensions.h
-  };
-  this.lines.h1 = {
-    "xStart": 0,
-    "xEnd": this.dimensions.w,
-    "yStart": Math.floor(this.dimensions.h * (1/3)),
-    "yEnd": Math.floor(this.dimensions.h * (1/3))
-  };
-  this.lines.h2 = {
-    "xStart": 0,
-    "xEnd": this.dimensions.w,
-    "yStart": Math.floor(this.dimensions.h* (2/3)),
-    "yEnd": Math.floor(this.dimensions.h * (2/3))
-  };
-};
-/**
- * _drawLines - Draw lines on canvas using line objects'
- * endpoints
- */
-GameBoard.prototype._drawLines = function() {
-  let {
-        v1, 
-        v2,
-        h1,
-        h2
-   } = this.lines;  
-  ctx.beginPath();
-  ctx.lineWidth = 10;
-  for (let line of Array.of(v1, v2, h1, h2)) {
-    ctx.moveTo(line.xStart, line.yStart);
-    ctx.lineTo(line.xEnd, line.yEnd);
-    ctx.stroke();
+  * Track the state of the Tic-Tac-Toe game.
+  * @typedef {object} GameMaster
+  */
+class GameMaster {
+  /**
+   * Create GameBoard and Tiles objects and
+   * load Tiles into GameBoard.
+   * @param {string} HtmlCanvasElementID
+   */
+  constructor(HtmlCanvasElementID){
+    // Get canvas and context
+    this.canvas = document.getElementById(HtmlCanvasElementID);
+    this.ctx = this.canvas.getContext("2d")
+    // Create GameBoard and Tiles objects
+    this.gameBoard = new GameBoard(this.canvas);
+    this.tiles = new Tiles(this.gameBoard);
+    this.gameBoard.loadTiles(this.tiles);
+    console.log(this.gameBoard.tiles);
   }
-  ctx.closePath();
-};
-/**
- * _drawCircle - Draws a circle within the clicked tile
- * using the GameTile object's number for calculating position.
- * @param {number} tileNo 
+}
+// []============================[]
+//      END OF GAMEMASTER CLASS
+// []============================[]
+
+
+// ================================
+//         GAMEBOARD CLASS
+// ================================
+/** 
+ * Tic-Tac-Toe gameboard used to track and manage the gameboard
+ * state.
+ * @typedef {object} GameBoard
+ * @todo add functionality: track which rows, columns, diagonals
+ *       are full and if they are occupied by 3-of-a-kind
  */
-GameBoard.prototype._drawCircle = function(tileNo) {
-  let  tile, top, left;
-  tile = this.tiles[tileNo];
-  // Remove offset, drawing with context starts at P(0,0)
-  top = tile.position.top - offTop + tile.dimensions.h / 2;
-  left = tile.position.left - offLeft + tile.dimensions.w / 2;
-  // Draw circle
-  ctx.beginPath();
-  ctx.lineWidth = 15;
-  ctx.arc(left, top, tile.dimensions.h / 3 , 0, 360);
-  ctx.stroke();
-  ctx.closePath();
-};
-/**
- * _drawX - Draws an 'X' within the clicked tile using
- * the GameTile object's number for calculating position.
- * @param {number} tileNo
- */
-GameBoard.prototype._drawX = function(tileNo) {
-    let tile, top, left, bottom, right, legAlter;
-    tile = this.tiles[tileNo];
+class GameBoard {
+  /**
+   * Initialize gameboard properties and draw board on canvas.
+   * @param {HTMLCanvasElement} HtmlCanvasElement
+   */
+  constructor(HtmlCanvasElement) {
+    this.name = "GameBoard";
+    this.canvas = HtmlCanvasElement;
+    this.ctx = this.canvas.getContext("2d");
+    this.cHeight = this.canvas.clientHeight;
+    this.cWidth = this.canvas.clientWidth;
+    this.lines = {
+      h1: {},
+      h2: {},
+      v1: {},
+      v2: {}
+    };
+    this.tiles; // Tiles collection object 
+    this._init();
+  }
+  // --------------------------------
+  //              METHODS
+  // --------------------------------
+  // ----- PRIVATE METHODS -----
+  /**
+   * Initialize GameBoard object and draw
+   * representation on canvas element.
+   */
+  _init() {
+    this._setLines();
+    this._drawLines();
+    // Event Listeners
+    window.addEventListener("resize", this._handleCanvasResize.bind(this))
+    this.canvas.addEventListener("click", this._canvasClickedEvent.bind(this));
+  }
+  /**
+   * Set the endpoints of the gameboard's lines.
+   */
+  _setLines() {
+    this.lines.v1 = {
+      "xStart": Math.floor(this.cWidth * (1/3)),
+      "xEnd": Math.floor(this.cWidth * (1/3)),
+      "yStart": 0,
+      "yEnd": this.cHeight
+    };
+    this.lines.v2 = {
+      "xStart": Math.floor(this.cWidth * (2/3)),
+      "xEnd": Math.floor(this.cWidth * (2/3)),
+      "yStart": 0,
+      "yEnd": this.cHeight
+    };
+    this.lines.h1 = {
+      "xStart": 0,
+      "xEnd": this.cWidth,
+      "yStart": Math.floor(this.cHeight * (1/3)),
+      "yEnd": Math.floor(this.cHeight * (1/3))
+    };
+    this.lines.h2 = {
+      "xStart": 0,
+      "xEnd": this.cWidth,
+      "yStart": Math.floor(this.cHeight* (2/3)),
+      "yEnd": Math.floor(this.cHeight * (2/3))
+    };
+  }
+  /**
+   * Draw lines on canvas using line objects'
+   * endpoints.
+   */
+  _drawLines() {
+    let {v1, v2, h1, h2} = this.lines;
+    this.ctx.beginPath();
+    this.ctx.lineWidth = 10;
+    for (let line of Array.of(v1, v2, h1, h2)) {
+      this.ctx.moveTo(line.xStart, line.yStart);
+      this.ctx.lineTo(line.xEnd, line.yEnd);
+      this.ctx.stroke();
+    }
+    this.ctx.closePath();
+  }
+  /**
+   * Draw a circle within the clicked tile
+   * using the tile object's number for calculating 
+   * position.
+   * @param {number} tileNo
+   */
+  _drawCircle(tileNo) {
+    let  left, offX, offY, tile, top;
+    [offX, offY] = [this.canvas.offsetLeft, this.canvas.offsetTop];
+    tile = this.tiles.tiles[tileNo];
+    // Remove offset, drawing with context starts at P(0,0)
+    top = tile.position.top - offY + tile.dimensions.h / 2;
+    left = tile.position.left - offX + tile.dimensions.w / 2;
+    // Draw circle
+    this.ctx.beginPath();
+    this.ctx.lineWidth = 15;
+    this.ctx.arc(left, top, tile.dimensions.h / 3 , 0, 360);
+    this.ctx.stroke();
+    this.ctx.closePath();
+  }
+  /**
+   * Draw an 'X' within the clicked tile using
+   * the tile object's number for calculating 
+   * position.
+   * @param {number} tileNo
+   */
+  _drawX(tileNo) {
+    let bottom, left, legAlter, offX, offY, right, tile, top ;
+    [offX, offY] = [this.canvas.offsetLeft, this.canvas.offsetTop];
+    tile = this.tiles.tiles[tileNo];
     // Shorten legs for the drawn 'X'
     legAlter = Math.floor(tile.dimensions.h * (1/6));
     // Remove offset, drawing with context starts at P(0,0)
-    top = tile.position.top - offTop + legAlter;
-    left = tile.position.left - offLeft + legAlter;
-    bottom = tile.position.bottom - offTop - legAlter;
-    right = tile.position.right - offLeft - legAlter;
+    top = tile.position.top - offY + legAlter;
+    left = tile.position.left - offX + legAlter;
+    bottom = tile.position.bottom - offY - legAlter;
+    right = tile.position.right - offX - legAlter;
     // Draw X
-    ctx.beginPath();
-    ctx.lineWidth = 15;
-    ctx.moveTo(left, top);
-    ctx.lineTo(right, bottom);
-    ctx.stroke();
-    ctx.moveTo(right, top);
-    ctx.lineTo(left, bottom);
-    ctx.stroke();
-    ctx.closePath();
-};
-/**
- * _positionTiles - populate tiles array with new 
- * GameTile objects.
- */
-GameBoard.prototype._positionTiles = function() {
-  for (let i = 0; i < 9; i++) {
-    let gameTile = new GameTile(this, i);
-    this.tiles.push(gameTile);
-  };
-};
-/**
- * canvasClickedEvent - performs an action depending on location
- * of click and current state of game.
- */
-GameBoard.prototype.canvasClickedEvent = function (event) {
-  "use strict"
-  let [x, y] = [event['x'], event['y']];
-  console.log(x, y);
-  console.log(this);
-  let columns, rows;
-  columns = {
-    "1": (x >= this.tiles[0].position.left) && (x <= this.tiles[0].position.right),
-    "2": (x >= this.tiles[1].position.left) && (x <= this.tiles[1].position.right),
-    "3": (x >= this.tiles[2].position.left) && (x <= this.tiles[2].position.right)
-  };
-  rows = {
-    "1": (y >= this.tiles[0].position.top) && (y <= this.tiles[0].position.bottom),
-    "2": (y >= this.tiles[3].position.top) && (y <= this.tiles[3].position.bottom),
-    "3": (y >= this.tiles[6].position.top) && (y <= this.tiles[6].position.bottom)
-  };
-  if (columns[1]) {
-    if (rows[1]) {
-      console.log("You have clicked the top-left square!");
-      this._drawCircle(0);
-    } else if (rows[2]) {
-        console.log("You have clicked the middle-left square!");
-      this._drawX(3);
-    } else if (rows[3]) {
-        console.log("You have clicked the bottom-left square!");
-      this._drawCircle(6);
+    this.ctx.beginPath();
+    this.ctx.lineWidth = 15;
+    this.ctx.moveTo(left, top);
+    this.ctx.lineTo(right, bottom);
+    this.ctx.stroke();
+    this.ctx.moveTo(right, top);
+    this.ctx.lineTo(left, bottom);
+    this.ctx.stroke();
+    this.ctx.closePath();
+  }
+  // ----- PUBLIC METHODS -----
+  /**
+   * Clear the gameboard of player occupancy.
+   */
+  clearBoard() {
+    this.ctx.clearRect(0, 0, this.cWidth, this.cHeight);
+    this._drawLines();
+  }
+  /**
+   * Load Tiles object into GameBoard object.
+   * @param {Tiles} tiles
+   */
+  loadTiles(tiles) {
+    this.tiles = tiles;
+  }
+  // --------------------------------
+  //         END OF METHODS
+  // --------------------------------
+  // --------------------------------
+  //             EVENTS
+  // --------------------------------
+  /**
+   * Perform an action depending on location
+   * of click and current state of game.
+   * @param {event} event
+   */
+  _canvasClickedEvent(event) {
+    let [x, y] = [event['pageX'], event['pageY']];
+                    // 'pageX' and 'pageY' instead of 'x' and 'y'
+                    // so clicks are relative to the edge of the
+                    // document instead of the browser/view (resolved
+                    // scrolling issue)
+    console.log(x, y);
+    let columns, rows;
+    let tiles = this.tiles.tiles;
+    console.log(tiles);
+    columns = {
+      "1": (x >= tiles[0].position.left) && (x <= tiles[0].position.right),
+      "2": (x >= tiles[1].position.left) && (x <= tiles[1].position.right),
+      "3": (x >= tiles[2].position.left) && (x <= tiles[2].position.right)
+    };
+    rows = {
+      "1": (y >= tiles[0].position.top) && (y <= tiles[0].position.bottom),
+      "2": (y >= tiles[3].position.top) && (y <= tiles[3].position.bottom),
+      "3": (y >= tiles[6].position.top) && (y <= tiles[6].position.bottom)
+    };
+    if (columns[1]) {
+      if (rows[1]) {
+        console.log("You have clicked the top-left square!");
+        this._drawCircle(0);
+      } else if (rows[2]) {
+          console.log("You have clicked the middle-left square!");
+        this._drawX(3);
+      } else if (rows[3]) {
+          console.log("You have clicked the bottom-left square!");
+        this._drawCircle(6);
+      } else {
+          console.log("Did not click a tile!");
+      }
+    } else if (columns[2])  {
+        if (rows[1]) {
+          console.log("You have clicked the top-center square!");
+        this._drawX(1);
+      } else if (rows[2]) {
+          console.log("You have clicked the middle-center square!");
+        this._drawCircle(4);
+      } else if (rows[3]) {
+          console.log("You have clicked the bottom-center square!");
+        this._drawX(7);
+      } else {
+        console.log("Did not click a tile!");
+      }
+    } else if (columns[3]){
+      if (rows[1]) {
+        console.log("You have clicked the top-right square!");
+        this._drawCircle(2);
+      } else if (rows[2]) {
+        console.log("You have clicked the middle-right square!");
+        this._drawX(5);
+      } else if (rows[3]) {
+        console.log("You have clicked the bottom-right square!");
+        this._drawCircle(8);
+      } else {
+        console.log("Did not click a tile!");
+      }
     } else {
         console.log("Did not click a tile!");
-    };
-  } else if (columns[2])  {
-      if (rows[1]) {
-        console.log("You have clicked the top-center square!");
-      this._drawX(1);
-    } else if (rows[2]) {
-        console.log("You have clicked the middle-center square!");
-      this._drawCircle(4);
-    } else if (rows[3]) {
-        console.log("You have clicked the bottom-center square!");
-      this._drawX(7);
-    } else {
-      console.log("Did not click a tile!");
-    };
-  } else if (columns[3]){
-    if (rows[1]) {
-      console.log("You have clicked the top-right square!");
-      this._drawCircle(2);
-    } else if (rows[2]) {
-      console.log("You have clicked the middle-right square!");
-      this._drawX(5);
-    } else if (rows[3]) {
-      console.log("You have clicked the bottom-right square!");
-      this._drawCircle(8);
-    } else {
-      console.log("Did not click a tile!");
-    };
-  } else {
-      console.log("Did not click a tile!");
-  };
-};
-/**
- * clearBoard - clears gameboard of 'X's and 'O's
- */
-GameBoard.prototype.clearBoard = function() {
-  ctx.clearRect(0, 0, cWidth, cHeight);
-  newGameBoard._drawLines();
-};
-// -----------> End of GameBoard C'tor <---------- 
-
-
-// -----> GameTile constructor function < -------
-/**
- * GameTile constructor function -
- * Takes tile number as an argument.
- * Tiles 0-8 to be initialized using
- * loop count variable. (Increasing 
- * left to right, top to bottom)
- * @constructor
- * @param {GameBoard} gameboard 
- * @param {number} tileNo 
- */
-function GameTile(gameboard, tileNo) {
-  this.tileNo = tileNo;
-  this.gameboard = gameboard;
-  this.factors = {
-    "x": null,
-    "y": null
-  };
-  this.position = {
-    "top": null,
-    "right": null,
-    "bottom": null,
-    "left": null
-  };
-  this.dimensions = {
-    "h": null,
-    "w": null
-  };
-  this._initializeObj();
-};
-/**
- * _initializeObj - 
- * Initialize GameTile object
- */
-GameTile.prototype._initializeObj = function() {
-  this._setFactors();
-  this._setDimensions();
-  this._setPosition();
-};
-/**
- * updateTile -
- * Needs to be called when/if canvas resizes
- */
-GameTile.prototype.updateTile = function() {
-  this._setDimensions();
-  this._setPosition();
-};
-/**
- * _setPosition -
- * Sets positions of the GameTile object's sides
- */
-GameTile.prototype._setPosition = function() {
-  if (this.dimensions.h !== null && this.dimensions.w !== null) {
-    this.position.top = Math.floor(
-      offTop + (this.gameboard.dimensions.h * (1/3) * this.factors.y)
-      );
-    this.position.left = Math.floor(
-      offLeft + (this.gameboard.dimensions.w * (1/3) * this.factors.x)
-      );
-    this.position.right = Math.floor(
-      this.position.left + this.dimensions.w
-      );
-    this.position.bottom = Math.floor(
-      this.position.top + this.dimensions.h
-      );
-  };    
-};
-/**
- * _setDimensions -
- * Sets dimensions of GameTile object, height and width
- */
-GameTile.prototype._setDimensions = function() {
-  this.dimensions.h = Math.floor(this.gameboard.dimensions.h * (1/3));
-  this.dimensions.w = Math.floor(this.gameboard.dimensions.w * (1/3));
-};
-/**
- * _setFactors - Sets the factors to multiply GameTile position calculations
- * by, to easily set the measurements for tiles in rows/columns 
- * 2 and 3
- */
-GameTile.prototype._setFactors = function() {
-  if (this.tileNo >= 0) {
-    // set x factor
-    switch(this.tileNo) {
-      case(0):
-      case(3):
-      case(6):
-        this.factors.x = 0;
-        break;
-      case(1):
-      case(4):
-      case(7):
-        this.factors.x = 1;
-        break;
-      case(2):
-      case(5):
-      case(8):
-        this.factors.x = 2;
-        break;
-    };
-    // Set y factor
-    switch(this.tileNo) {
-      case(0):
-      case(1):
-      case(2):
-        this.factors.y = 0;
-        break;
-      case(3):
-      case(4):
-      case(5):
-        this.factors.y = 1;
-        break;
-      case(6):
-      case(7):
-      case(8):
-        this.factors.y = 2;
-    };
-  } else {
-    throw Error(`Error: 'tic-tac-toe.js' > 'GameTile._setFactors()'\n` +
-                 `'tileNo' not set. Pass in index of array when tiles are created by\n` +
-                 `GameBoard.`);
+    }
   }
-};
-// -----> End of GameTile C'tor < -------
+  /**
+   * Ensure that mouse clicks register in the right
+   * tile after the viewport has been resized.
+   */
+  _handleCanvasResize() {
+    this.tiles.updateTiles();
+  }
+  // --------------------------------
+  //          END OF EVENTS
+  // --------------------------------
+}
+// []============================[]
+//      END OF GAMEBOARD CLASS
+// []============================[]
 
-let clicks = 0;
-// Testing ongoing development
-let newGameBoard = new GameBoard();
+
+// ================================
+//           TILES CLASS
+// ================================
+/**
+ * A collection of tiles for use with the
+ * Tic-Tac-Toe gameboard.
+ * @typedef Tiles
+ * @todo add functionality: ability to track which tiles are occupied
+ *       by a player's 'X' or 'O'. and which player the tile belongs to.
+ */
+class Tiles {
+  /**
+   * Initialize Tiles object with 9
+   * tiles for the gameboard in its 
+   * collection.
+   */
+  constructor(gameboard) {
+    this.gameboard = gameboard;
+    this.canvas = this.gameboard.canvas;
+    this.tiles = [];
+    this._newTile = () => {
+      return {
+        "tileNo": 5,
+        "gameboard": null,
+        "marked": false,
+        "owner": null,
+        "factors": {
+          "x": null,
+          "y": null
+        },
+        "position": {
+          "top": null,
+          "right": null,
+          "bottom": null,
+          "right": null
+        },
+        "dimensions": {
+          "h": null,
+          "w": null
+        }
+      }
+    };
+    this._initTiles();
+  }
+  // ------ ITERATION
+  [Symbol.iterator]() {
+    return this.iterator();
+  }
+  *iterator() {
+    for(let tile of this.tiles) {
+      yield tile;
+    }
+  }
+  // --------------------------------
+  //              METHODS
+  // --------------------------------
+  // ------- PRIVATE METHODS -------
+  /**
+   * Create the tiles for the Tiles collection 
+   * object, number them, associate them with
+   * the GameBoard oject they are used in and
+   * push them to the internalarray.
+   */
+  _initTiles() {
+    for(let i = 0; i < 9; i++) {
+      let newTile = this._newTile();
+      newTile.gameboard = this.gameboard;
+      newTile.tileNo = this.tiles.length;
+      this.tiles.push(newTile);
+    }
+    this._setFactors();
+    this.updateTiles();
+  }
+  /**
+   * Set dimensions of a single tile, height and width,
+   * based off of the current canvas dimensions.
+   * @param {object} tile
+   */
+  _setDimensions(tile) {
+    let h = Math.floor(this.canvas.clientHeight * (1/3));
+    let w = Math.floor(this.canvas.clientWidth * (1/3));
+    tile.dimensions = {'h': h, 'w': w};
+  }
+   /**
+   *  Set multiplyers for calculating
+   *  tile position based on the tile's
+   *  row and column.
+   */
+  _setFactors() {
+    for(let tile of this.tiles) {
+      if (tile.tileNo >= 0) {
+        // set x factor
+        switch(tile.tileNo) {
+          case(0):
+          case(3):
+          case(6):
+            tile.factors.x = 0;
+            break;
+          case(1):
+          case(4):
+          case(7):
+            tile.factors.x = 1;
+            break;
+          case(2):
+          case(5):
+          case(8):
+            tile.factors.x = 2;
+        }
+        // Set y factor
+        switch(tile.tileNo) {
+          case(0):
+          case(1):
+          case(2):
+            tile.factors.y = 0;
+            break;
+          case(3):
+          case(4):
+          case(5):
+            tile.factors.y = 1;
+            break;
+          case(6):
+          case(7):
+          case(8):
+            tile.factors.y = 2;
+        }
+      }
+    }
+  }
+  /**
+   * Set position of a single tile; top, right
+   * bottom and left, based off current canvas offsets
+   * and dimensions.
+   * @param {object} tile
+   */
+  _setPosition(tile) {
+    let [offX, offY] = [
+      this.canvas.offsetLeft, this.canvas.offsetTop
+    ];
+    let [cHeight, cWidth] = [
+      this.canvas.clientHeight, this.canvas.clientWidth
+    ];
+    let top = Math.floor(offY + (cHeight * (1/3) * tile.factors.y));
+    let left = Math.floor(offX + (cWidth * (1/3) * tile.factors.x));
+    let right = Math.floor(left + tile.dimensions.w);
+    let bottom = Math.floor(top + tile.dimensions.h);
+    tile.position = {
+      'top': top,
+      'right': right,
+      'bottom': bottom,
+      'left': left
+    };
+  }
+  // ------- PUBLIC METHODS -------
+  /**
+   * Update dimensions and position of all tiles
+   * in the collection.
+   */
+  updateTiles() {
+    for(let i = 0; i < this.tiles.length; i++) {
+      this._setDimensions(this.tiles[i]);
+      this._setPosition(this.tiles[i]);
+    }
+  }
+}
+// []============================[]
+//        END OF TILES CLASS
+// []============================[]
+
+// ============================================================
+// ============================================================
+//                      BEGIN TESTING
+// ============================================================
 
 
-
+let gMaster = new GameMaster("my-canvas");
